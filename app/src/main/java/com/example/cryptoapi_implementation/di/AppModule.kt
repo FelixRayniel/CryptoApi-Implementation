@@ -1,7 +1,7 @@
 package com.example.cryptoapi_implementation.di
 
-import com.example.cryptoapi_implementation.CoinApi
-import com.example.cryptoapi_implementation.CoinsRepository
+import com.example.cryptoapi_implementation.data.CoinApi
+import com.example.cryptoapi_implementation.data.CoinsRepository
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dagger.Module

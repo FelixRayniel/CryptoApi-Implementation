@@ -26,9 +26,17 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
+import com.example.cryptoapi_implementation.data.CoinDto
+import com.example.cryptoapi_implementation.data.CoinsRepository
 import com.example.cryptoapi_implementation.ui.theme.CryptoApiImplementationTheme
+import com.example.cryptoapi_implementation.ui.theme.ui.CoinListScreen
+import com.example.cryptoapi_implementation.ui.theme.ui.CoinRegistroScreen
+import com.example.cryptoapi_implementation.ui.theme.ui.component.CoinItem
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -54,146 +62,34 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colors.background
                 ) {
-                    CoinListScreen()
+                    NavigationHost()
                 }
             }
         }
     }
 }
 
-@Composable
-fun CoinListScreen(
-    viewModel: CoinViewModel = hiltViewModel()
-) {
-
-    val state = viewModel.state.value
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        LazyColumn(modifier = Modifier.fillMaxSize()){
-            items( state.coins){ coin ->
-                CoinItem(coin = coin, {})
-            }
-        }
-
-        if (state.isLoading)
-            CircularProgressIndicator()
-
-    }
-
-}
 
 @Composable
-fun CoinItem(
-    coin:CoinDto,
-    onClick : (CoinDto) -> Unit
-) {
-    Card(
-        shape = RoundedCornerShape(8.dp),
-        elevation = 5.dp,
-        modifier = Modifier
-            .padding(horizontal = 8.dp, vertical = 2.dp).fillMaxWidth()
+fun NavigationHost() {
+    val navHostController = rememberNavController()
+
+    NavHost(
+        navController = navHostController,
+        startDestination = Screens.CoinListScreen.route
     ) {
-        Row(modifier = Modifier
-            .clickable { onClick(coin) }.padding(8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row{
-                AsyncImage(modifier = Modifier.size(55.dp),
-                    model = ImageRequest.Builder(LocalContext.current).data(coin.imageUrl)
-                        .crossfade(true).build(),
-                    contentDescription = coin.descripcion,
-                )
-
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(text = coin.descripcion, fontWeight = FontWeight.Bold)
-            }
-
-            val decimal = DecimalFormat("#,###.######")
-
-            Text(
-                text = "$" + decimal.format(coin.valor.toDouble()), color = Color.Blue, fontFamily = FontFamily.Serif,
-                fontWeight = FontWeight.Bold,
-                fontStyle = FontStyle.Italic,
-                textAlign = TextAlign.End
-            )
+        composable(Screens.CoinListScreen.route) {
+            CoinListScreen(navHostController = navHostController)
+        }
+        composable(Screens.RegisterCoinScreen.route) {
+            CoinRegistroScreen(navHostController = navHostController)
         }
     }
 }
 
-@Composable
-fun CoinScreen(viewModel: CoinViewModel = hiltViewModel()) {
-    //val coin = viewModel.coin.value
-
-    Column(modifier = Modifier.fillMaxSize()) {
-        /* Text(text = coin.name)
-         Text(text = coin.symbol)*/
-    }
-
-}
-
-data class CoinDto(
-    val monedaId: Int = 0,
-    val descripcion: String = "",
-    val valor: Double = 0.00,
-    val imageUrl: String = ""
-)
-
-//RUTA: data/remote
-interface CoinApi {
-    @GET("/Coins")
-    suspend fun getCoins(): List<CoinDto>
+sealed class Screens(val route: String) {
+    object CoinListScreen : Screens("CoinListScreen")
+    object RegisterCoinScreen : Screens("CoinRegistroScreen")
 }
 
 
-class CoinsRepository @Inject constructor(
-    private val api: CoinApi
-) {
-    fun getCoins(): Flow<Resource<List<CoinDto>>> = flow {
-        try {
-
-            emit(Resource.Loading()) //indicar que estamos cargando
-
-            val coins = api.getCoins() //descarga las monedas de internet, se supone quedemora algo
-
-            emit(Resource.Success(coins)) //indicar que se cargo correctamente y pasarle las monedas
-        } catch (e: HttpException) {
-            //error general HTTP
-            emit(Resource.Error(e.message ?: "Error HTTP GENERAL"))
-        } catch (e: IOException) {
-            //debe verificar tu conexion a internet
-            emit(Resource.Error(e.message ?: "verificar tu conexion a internet"))
-        }
-    }
-}
-
-data class CoinListState(
-    val isLoading: Boolean = false,
-    val coins: List<CoinDto> = emptyList(),
-    val error: String = ""
-)
-
-@HiltViewModel
-class CoinViewModel @Inject constructor(
-    private val coinsRepository: CoinsRepository
-) : ViewModel() {
-
-    private var _state = mutableStateOf(CoinListState())
-    val state: State<CoinListState> = _state
-
-    init {
-        coinsRepository.getCoins().onEach { result ->
-            when (result) {
-                is Resource.Loading -> {
-                    _state.value = CoinListState(isLoading = true)
-                }
-
-                is Resource.Success -> {
-                    _state.value = CoinListState(coins = result.data ?: emptyList())
-                }
-                is Resource.Error -> {
-                    _state.value = CoinListState(error = result.message ?: "Error desconocido")
-                }
-            }
-        }.launchIn(viewModelScope)
-    }
-}
